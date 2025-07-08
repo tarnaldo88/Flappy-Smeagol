@@ -64,6 +64,14 @@ while running:
         pipe_x = SCREEN_WIDTH
         pipe_height = random.randint(100, SCREEN_HEIGHT - PIPE_GAP - 100)
 
+    # Collision detection
+    bird_rect = pygame.Rect(bird_x, int(bird_y), bird_width, bird_height)
+    top_pipe_rect = pygame.Rect(pipe_x, 0, PIPE_WIDTH, pipe_height)
+    bottom_pipe_rect = pygame.Rect(pipe_x, pipe_height + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe_height - PIPE_GAP)
+
+    if (bird_rect.colliderect(top_pipe_rect) or bird_rect.colliderect(bottom_pipe_rect)):
+        running = False  # End the game loop
+
     # Fill the background
     screen.fill((135, 206, 235))  # Sky blue
 
