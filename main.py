@@ -120,12 +120,13 @@ while True:
         screen.blit(smeagol_img, (bird_x, int(bird_y)))
 
         # Draw the score
-        score_text = score_font.render(f'Score: {score}', True, (0,0,0))
+        score_text = score_font.render(f'Score: {score}', True, (255,0,0))
         screen.blit(score_text, (10, 10))
 
     elif game_state == 'game_over':
         # Fill the background
         screen.fill((135, 206, 235))
+        screen.blit(score_text, (10, 10)) 
         # Draw pipes as Sam images
         # Top Sam
         top_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, max(1, pipe_height)))
