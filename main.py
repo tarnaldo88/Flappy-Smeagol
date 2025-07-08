@@ -11,7 +11,7 @@ FPS = 60
 
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('Flappy Bird')
+pygame.display.set_caption('Flappy Smeagol')
 clock = pygame.time.Clock()
 
 # Bird variables
