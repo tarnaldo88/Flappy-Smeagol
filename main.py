@@ -27,6 +27,10 @@ JUMP_STRENGTH = -8
 smeagol_img = pygame.image.load('Images/smeagol.png').convert_alpha()
 smeagol_img = pygame.transform.scale(smeagol_img, (bird_width, bird_height))
 
+# Load and scale background image
+bg_img = pygame.image.load('Images/background.jpg').convert()
+bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
 # Pipe variables
 import random
 PIPE_WIDTH = 52
@@ -96,8 +100,8 @@ while True:
         if (bird_rect.colliderect(top_pipe_rect) or bird_rect.colliderect(bottom_pipe_rect)):
             game_state = 'game_over'
 
-        # Fill the background
-        screen.fill((135, 206, 235))  # Sky blue
+        # Draw the background image
+        screen.blit(bg_img, (0, 0))
 
         # Draw pipes
         pygame.draw.rect(screen, (34, 139, 34), (pipe_x, 0, PIPE_WIDTH, pipe_height))
