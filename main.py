@@ -31,6 +31,9 @@ smeagol_img = pygame.transform.scale(smeagol_img, (bird_width, bird_height))
 bg_img = pygame.image.load('Images/background.jpg').convert()
 bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
+# Load Sam image for obstacles
+sam_img = pygame.image.load('Images/sam.png').convert_alpha()
+
 # Pipe variables
 import random
 PIPE_WIDTH = 52
@@ -103,9 +106,15 @@ while True:
         # Draw the background image
         screen.blit(bg_img, (0, 0))
 
-        # Draw pipes
-        pygame.draw.rect(screen, (34, 139, 34), (pipe_x, 0, PIPE_WIDTH, pipe_height))
-        pygame.draw.rect(screen, (34, 139, 34), (pipe_x, pipe_height + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe_height - PIPE_GAP))
+        # Draw pipes as Sam images
+        # Top Sam
+        top_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, max(1, pipe_height)))
+        screen.blit(top_sam_scaled, (pipe_x, 0))
+        # Bottom Sam
+        bottom_pipe_height = SCREEN_HEIGHT - pipe_height - PIPE_GAP
+        if bottom_pipe_height > 0:
+            bottom_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, bottom_pipe_height))
+            screen.blit(bottom_sam_scaled, (pipe_x, pipe_height + PIPE_GAP))
 
         # Draw the bird (Smeagol image)
         screen.blit(smeagol_img, (bird_x, int(bird_y)))
@@ -117,9 +126,15 @@ while True:
     elif game_state == 'game_over':
         # Fill the background
         screen.fill((135, 206, 235))
-        # Draw pipes
-        pygame.draw.rect(screen, (34, 139, 34), (pipe_x, 0, PIPE_WIDTH, pipe_height))
-        pygame.draw.rect(screen, (34, 139, 34), (pipe_x, pipe_height + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe_height - PIPE_GAP))
+        # Draw pipes as Sam images
+        # Top Sam
+        top_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, max(1, pipe_height)))
+        screen.blit(top_sam_scaled, (pipe_x, 0))
+        # Bottom Sam
+        bottom_pipe_height = SCREEN_HEIGHT - pipe_height - PIPE_GAP
+        if bottom_pipe_height > 0:
+            bottom_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, bottom_pipe_height))
+            screen.blit(bottom_sam_scaled, (pipe_x, pipe_height + PIPE_GAP))
         # Draw the bird
         screen.blit(smeagol_img, (bird_x, int(bird_y)))
         # Draw Game Over text
