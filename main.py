@@ -59,6 +59,60 @@ reset_game()
 font = pygame.font.SysFont(None, 48)
 score_font = pygame.font.SysFont(None, 36)
 
+# --- Username Input Screen ---
+def get_username():
+    input_box = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 - 32, 200, 48)
+    color_inactive = pygame.Color('lightskyblue3')
+    color_active = pygame.Color('dodgerblue2')
+    color = color_inactive
+    active = False
+    username = ''
+    done = False
+    font_input = pygame.font.SysFont(None, 48)
+    
+    while not done:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # If the user clicked on the input_box rect.
+                if input_box.collidepoint(event.pos):
+                    active = not active
+                else:
+                    active = False
+                color = color_active if active else color_inactive
+            if event.type == pygame.KEYDOWN:
+                if active:
+                    if event.key == pygame.K_RETURN:
+                        if username.strip():
+                            done = True
+                    elif event.key == pygame.K_BACKSPACE:
+                        username = username[:-1]
+                    else:
+                        if len(username) < 16 and event.unicode.isprintable():
+                            username += event.unicode
+        screen.fill((135, 206, 235))
+        # Render prompt
+        prompt = font_input.render('Enter Username:', True, (0,0,0))
+        prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
+        screen.blit(prompt, prompt_rect)
+        # Render input
+        txt_surface = font_input.render(username, True, color)
+        width = max(200, txt_surface.get_width()+10)
+        input_box.w = width
+        screen.blit(txt_surface, (input_box.x+5, input_box.y+5))
+        pygame.draw.rect(screen, color, input_box, 2)
+        pygame.display.flip()
+        clock.tick(30)
+    return username
+
+# Get username before starting the game
+username = get_username()
+
+# To prevent saving multiple times per game over event
+score_saved = False
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -73,6 +127,7 @@ while True:
                 game_state = 'play'
 
     if game_state == 'play':
+        score_saved = False
         # Bird physics
         bird_velocity += GRAVITY
         bird_y += bird_velocity
@@ -124,6 +179,13 @@ while True:
         screen.blit(score_text, (10, 10))
 
     elif game_state == 'game_over':
+        if not score_saved:
+            try:
+                with open('scores.txt', 'a', encoding='utf-8') as f:
+                    f.write(f'{username}: {score}\n')
+            except Exception as e:
+                print(f'Error saving score: {e}')
+            score_saved = True
         # Fill the background
         screen.fill((135, 206, 235))
         screen.blit(score_text, (10, 10)) 
