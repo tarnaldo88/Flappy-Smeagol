@@ -107,6 +107,18 @@ def get_username():
         clock.tick(30)
     return username
 
+def show_lobby():
+    screen.fill((135, 206, 235))
+    title_font = pygame.font.SysFont(None, 64)
+    title = title_font.render('Flappy Smeagol', True, (0, 0, 0))
+    title_rect = title.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
+    screen.blit(title, title_rect)
+    prompt_font = pygame.font.SysFont(None, 36)
+    prompt = prompt_font.render('Press Space to Start', True, (0, 0, 0))
+    prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 30))
+    screen.blit(prompt, prompt_rect)
+    pygame.display.flip()
+
 # Get username before starting the game
 username = get_username()
 
@@ -114,6 +126,30 @@ username = get_username()
 score_saved = False
 
 while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        if game_state == 'lobby':
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                game_state = 'username'
+        elif game_state == 'username':
+            # Username input handled below
+            pass
+        elif game_state == 'play':
+            # ... existing code ...
+        elif game_state == 'game_over':
+            # ... existing code ...
+
+    if game_state == 'lobby':
+        show_lobby()
+        clock.tick(30)
+        continue
+
+    if game_state == 'username':
+        username = get_username()
+        game_state = 'play'
+        continue
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
