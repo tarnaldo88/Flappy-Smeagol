@@ -126,7 +126,8 @@ username = get_username()
 score_saved = False
 
 while True:
-    for event in pygame.event.get():
+    events = pygame.event.get()
+    for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
@@ -135,22 +136,17 @@ while True:
                 game_state = 'username'
         elif game_state == 'username':
             # Username input handled below
-            pass
-        elif game_state == 'play':
-            # ... existing code ...
-        elif game_state == 'game_over':
-            # ... existing code ...
-
+            pass      
     if game_state == 'lobby':
         show_lobby()
         clock.tick(30)
         continue
-
     if game_state == 'username':
         username = get_username()
         game_state = 'play'
+        pygame.event.clear()  # Clear event queue so spacebar isn't "held over"
         continue
-    for event in pygame.event.get():
+    for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
