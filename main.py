@@ -157,6 +157,12 @@ while True:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 reset_game()
                 game_state = 'play'
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # Check if Main Menu button is clicked
+                menu_button_rect = pygame.Rect(SCREEN_WIDTH//2 - 80, SCREEN_HEIGHT//2 + 80, 160, 50)
+                if menu_button_rect.collidepoint(event.pos):
+                    reset_game()
+                    game_state = 'lobby'
 
     if game_state == 'play':
         score_saved = False
@@ -239,6 +245,12 @@ while True:
         restart_text = font.render('Press Space to Restart', True, (0, 0, 0))
         restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 30))
         screen.blit(restart_text, restart_rect)
+        # Draw Main Menu button
+        menu_button_rect = pygame.Rect(SCREEN_WIDTH//2 - 80, SCREEN_HEIGHT//2 + 80, 160, 50)
+        pygame.draw.rect(screen, (0, 0, 0), menu_button_rect, border_radius=8)
+        menu_text = font.render('Main Menu', True, (255, 255, 255))
+        menu_text_rect = menu_text.get_rect(center=menu_button_rect.center)
+        screen.blit(menu_text, menu_text_rect)
 
     # Update the display
     pygame.display.flip()
