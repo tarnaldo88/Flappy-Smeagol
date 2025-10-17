@@ -92,9 +92,9 @@ def get_username():
                     else:
                         if len(username) < 16 and event.unicode.isprintable():
                             username += event.unicode
-        screen.fill((135, 206, 235))
+        screen.fill((0, 0, 0))
         # Render prompt
-        prompt = font_input.render('Enter Username:', True, (0,0,0))
+        prompt = font_input.render('Enter Username:', True, (255,255,255))
         prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
         screen.blit(prompt, prompt_rect)
         # Render input
