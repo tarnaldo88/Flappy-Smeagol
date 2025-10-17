@@ -224,8 +224,8 @@ while True:
             except Exception as e:
                 print(f'Error saving score: {e}')
             score_saved = True
-        # Fill the background
-        screen.fill((135, 206, 235))
+        # Fill the background with dark red
+        screen.fill((139, 0, 0))  # Dark red color
         screen.blit(score_text, (10, 10)) 
         # Draw pipes as Sam images
         # Top Sam
@@ -238,18 +238,27 @@ while True:
             screen.blit(bottom_sam_scaled, (pipe_x, pipe_height + PIPE_GAP))
         # Draw the bird
         screen.blit(smeagol_img, (bird_x, int(bird_y)))
-        # Draw Game Over text
-        text = font.render('Game Over', True, (255, 0, 0))
-        text_rect = text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 30))
-        screen.blit(text, text_rect)
-        restart_text = font.render('Press Space to Restart', True, (0, 0, 0))
-        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 30))
-        screen.blit(restart_text, restart_rect)
-        # Draw Main Menu button
-        menu_button_rect = pygame.Rect(SCREEN_WIDTH//2 - 80, SCREEN_HEIGHT//2 + 80, 160, 50)
+        
+        # Game over text with semi-transparent background
+        text = font.render('Game Over', True, (255, 255, 255))
+        text_rect = text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50))
+        
+        # Restart instructions
+        restart_text = font.render('Press Space to Restart', True, (255, 255, 255))
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
+        
+        # Draw Main Menu button with more space
+        menu_button_rect = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 + 70, 200, 50)
         pygame.draw.rect(screen, (0, 0, 0), menu_button_rect, border_radius=8)
-        menu_text = font.render('Main Menu', True, (255, 255, 255))
+        
+        # Use a smaller font for the menu button text
+        menu_font = pygame.font.SysFont(None, 36)
+        menu_text = menu_font.render('Main Menu', True, (255, 255, 255))
         menu_text_rect = menu_text.get_rect(center=menu_button_rect.center)
+        
+        # Draw all elements
+        screen.blit(text, text_rect)
+        screen.blit(restart_text, restart_rect)
         screen.blit(menu_text, menu_text_rect)
 
     # Update the display

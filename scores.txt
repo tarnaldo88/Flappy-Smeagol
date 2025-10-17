@@ -10,3 +10,6 @@ kljhg: 0
 kljhg: 0
 kljhg: 1
 asdf: 5
+asdf : 3
+asdf : 0
+asdf : 2
