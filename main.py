@@ -227,16 +227,8 @@ while True:
         # Fill the background with dark red
         screen.fill((139, 0, 0))  # Dark red color
         screen.blit(score_text, (10, 10)) 
-        # Draw pipes as Sam images
-        # Top Sam
-        top_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, max(1, pipe_height)))
-        screen.blit(top_sam_scaled, (pipe_x, 0))
-        # Bottom Sam
-        bottom_pipe_height = SCREEN_HEIGHT - pipe_height - PIPE_GAP
-        if bottom_pipe_height > 0:
-            bottom_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, bottom_pipe_height))
-            screen.blit(bottom_sam_scaled, (pipe_x, pipe_height + PIPE_GAP))
-        # Draw the bird
+        
+        # Draw the bird in its final position
         screen.blit(smeagol_img, (bird_x, int(bird_y)))
         
         # Game over text with semi-transparent background
