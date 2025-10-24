@@ -4,24 +4,28 @@ import sys
 # Initialize pygame
 pygame.init()
 
+import math
+
 # Game Constants
-SCREEN_WIDTH = 400
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 800  # Make it square for better spiral movement
 FPS = 60
+CENTER_X = SCREEN_WIDTH // 2
+CENTER_Y = SCREEN_HEIGHT // 2
 
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('Flappy Smeagol')
+pygame.display.set_caption('Spiral Smeagol')
 clock = pygame.time.Clock()
 
-# Bird variables
-bird_x = 50
-bird_y = SCREEN_HEIGHT // 2
+# Bird variables in polar coordinates (r, theta)
+bird_radius = 100  # Initial distance from center
+bird_angle = 0      # Initial angle in radians
 bird_width = 34
 bird_height = 24
-bird_velocity = 0
-GRAVITY = 0.5
-JUMP_STRENGTH = -8
+bird_angular_velocity = 0
+ANGULAR_ACCELERATION = 0.001
+ANGULAR_JUMP_STRENGTH = -0.1
 
 # Load Smeagol image
 smeagol_img = pygame.image.load('Images/smeagol.png').convert_alpha()
@@ -34,24 +38,30 @@ bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 # Load Sam image for obstacles
 sam_img = pygame.image.load('Images/sam.png').convert_alpha()
 
+# Spiral parameters
+SPIRAL_TIGHTNESS = 0.1  # How quickly the spiral tightens
+
 # Pipe variables
 import random
 PIPE_WIDTH = 52
-PIPE_HEIGHT = 320
 PIPE_GAP = 150
-PIPE_VELOCITY = 3
-pipe_x = SCREEN_WIDTH
-pipe_height = random.randint(100, SCREEN_HEIGHT - PIPE_GAP - 100)
+PIPE_ANGULAR_VELOCITY = 0.03  # How fast pipes move in the spiral
+PIPE_ANGULAR_SPACING = 0.5    # Angular distance between pipes
+
+class Pipe:
+    def __init__(self, angle, gap_angle):
+        self.angle = angle
+        self.gap_angle = gap_angle  # Angle where the gap is
+        self.passed = False
 
 def reset_game():
-    global bird_x, bird_y, bird_velocity, pipe_x, pipe_height, score, pipe_passed
-    bird_x = 50
-    bird_y = SCREEN_HEIGHT // 2
-    bird_velocity = 0
-    pipe_x = SCREEN_WIDTH
-    pipe_height = random.randint(100, SCREEN_HEIGHT - PIPE_GAP - 100)
+    global bird_radius, bird_angle, bird_angular_velocity, pipes, last_pipe_angle, score
+    bird_radius = 100
+    bird_angle = 0
+    bird_angular_velocity = 0
+    pipes = []
+    last_pipe_angle = 0
     score = 0
-    pipe_passed = False
 
 game_state = 'play'  # can be 'play' or 'game_over'
 reset_game()
@@ -152,7 +162,7 @@ while True:
             sys.exit()
         if game_state == 'play':
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                bird_velocity = JUMP_STRENGTH
+                bird_angular_velocity = ANGULAR_JUMP_STRENGTH
         elif game_state == 'game_over':
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 reset_game()
@@ -166,51 +176,70 @@ while True:
 
     if game_state == 'play':
         score_saved = False
-        # Bird physics
-        bird_velocity += GRAVITY
-        bird_y += bird_velocity
-
-        # Prevent bird from going off-screen
-        if bird_y < 0:
-            bird_y = 0
-            bird_velocity = 0
-        if bird_y + bird_height > SCREEN_HEIGHT:
-            bird_y = SCREEN_HEIGHT - bird_height
-            bird_velocity = 0
-
-        # Move pipes
-        pipe_x -= PIPE_VELOCITY
-        if pipe_x + PIPE_WIDTH < bird_x and not pipe_passed:
-            score += 1
-            pipe_passed = True
-        if pipe_x < -PIPE_WIDTH:
-            pipe_x = SCREEN_WIDTH
-            pipe_height = random.randint(100, SCREEN_HEIGHT - PIPE_GAP - 100)
-            pipe_passed = False
-
-        # Collision detection
-        bird_rect = pygame.Rect(bird_x, int(bird_y), bird_width, bird_height)
-        top_pipe_rect = pygame.Rect(pipe_x, 0, PIPE_WIDTH, pipe_height)
-        bottom_pipe_rect = pygame.Rect(pipe_x, pipe_height + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe_height - PIPE_GAP)
-
-        if (bird_rect.colliderect(top_pipe_rect) or bird_rect.colliderect(bottom_pipe_rect)):
+        
+        # Bird physics in spiral
+        bird_angular_velocity += ANGULAR_ACCELERITY
+        bird_angle += bird_angular_velocity
+        
+        # Apply spiral effect - radius decreases as angle increases
+        bird_radius = max(50, 200 - (bird_angle * SPIRAL_TIGHTNESS))
+        
+        # Convert polar to cartesian for drawing
+        bird_x = CENTER_X + bird_radius * math.cos(bird_angle)
+        bird_y = CENTER_Y + bird_radius * math.sin(bird_angle)
+        
+        # Generate new pipes
+        if not pipes or (bird_angle - last_pipe_angle) > PIPE_ANGULAR_SPACING:
+            gap_angle = random.uniform(0, 2 * math.pi)
+            pipes.append(Pipe(bird_angle + 2 * math.pi, gap_angle))
+            last_pipe_angle = bird_angle
+        
+        # Update pipes and check for scoring
+        for pipe in pipes[:]:
+            pipe.angle -= PIPE_ANGULAR_VELOCITY
+            
+            # Check if pipe is behind the bird and not yet passed
+            if pipe.angle < bird_angle and not pipe.passed:
+                score += 1
+                pipe.passed = True
+            
+            # Remove pipes that are too far behind
+            if pipe.angle < bird_angle - math.pi * 2:
+                pipes.remove(pipe)
+        
+        # Collision detection with screen bounds
+        if bird_radius < 20 or bird_radius > 300:
             game_state = 'game_over'
+            
+        # Collision detection with pipes
+        for pipe in pipes:
+            # Calculate angle difference between pipe gap and bird
+            angle_diff = abs((bird_angle - pipe.gap_angle + math.pi) % (2 * math.pi) - math.pi)
+            
+            # If bird is in the pipe's angle range and not in the gap
+            if (abs(pipe.angle - bird_angle) < 0.2 and 
+                (angle_diff > math.radians(30) or bird_radius < 50)):
+                game_state = 'game_over'
 
         # Draw the background image
         screen.blit(bg_img, (0, 0))
-
-        # Draw pipes as Sam images
-        # Top Sam
-        top_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, max(1, pipe_height)))
-        screen.blit(top_sam_scaled, (pipe_x, 0))
-        # Bottom Sam
-        bottom_pipe_height = SCREEN_HEIGHT - pipe_height - PIPE_GAP
-        if bottom_pipe_height > 0:
-            bottom_sam_scaled = pygame.transform.scale(sam_img, (PIPE_WIDTH, bottom_pipe_height))
-            screen.blit(bottom_sam_scaled, (pipe_x, pipe_height + PIPE_GAP))
-
+        
+        # Draw pipes along the spiral
+        for pipe in pipes:
+            # Draw pipe segments around the circle
+            for i in range(36):  # 36 segments for smooth circle
+                angle = pipe.angle + math.radians(i * 10)
+                if abs((angle - pipe.gap_angle + math.pi) % (2 * math.pi) - math.pi) > math.radians(30):
+                    r = 200 - (pipe.angle * SPIRAL_TIGHTNESS)
+                    x = CENTER_X + r * math.cos(angle)
+                    y = CENTER_Y + r * math.sin(angle)
+                    pipe_img = pygame.transform.scale(sam_img, (PIPE_WIDTH, PIPE_WIDTH))
+                    pipe_img = pygame.transform.rotate(pipe_img, math.degrees(angle) + 90)
+                    screen.blit(pipe_img, (x - PIPE_WIDTH//2, y - PIPE_WIDTH//2))
+        
         # Draw the bird (Smeagol image)
-        screen.blit(smeagol_img, (bird_x, int(bird_y)))
+        bird_rotated = pygame.transform.rotate(smeagol_img, math.degrees(bird_angle) + 90)
+        screen.blit(bird_rotated, (bird_x - bird_width//2, bird_y - bird_height//2))
 
         # Draw the score
         score_text = score_font.render(f'Score: {score}', True, (255,0,0))
