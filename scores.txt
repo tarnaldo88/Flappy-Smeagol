@@ -15,3 +15,16 @@ asdf : 0
 asdf : 2
 wre : 2
 wre : 0
+asdf: 0
+af: 0
+aasdf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0
+sadf: 0

@@ -39,7 +39,12 @@ bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 sam_img = pygame.image.load('Images/sam.png').convert_alpha()
 
 # Spiral parameters
-SPIRAL_TIGHTNESS = 0.1  # How quickly the spiral tightens
+SPIRAL_TIGHTNESS = 0.005  # How quickly the spiral tightens (smaller = tighter)
+SPIRAL_START_RADIUS = 100  # Starting radius of the spiral
+SPIRAL_WALL_THICKNESS = 80  # Thickness of the spiral wall
+ANGULAR_ACCELERATION = 0.0003  # Reduced for better control
+ANGULAR_JUMP_STRENGTH = -0.1  # Slightly stronger for better control
+BIRD_SPEED_MULTIPLIER = 2.0  # How fast the bird moves along the spiral
 
 # Pipe variables
 import random
@@ -181,12 +186,25 @@ while True:
         bird_angular_velocity += ANGULAR_ACCELERATION
         bird_angle += bird_angular_velocity
         
-        # Apply spiral effect - radius decreases as angle increases
-        bird_radius = max(50, 200 - (bird_angle * SPIRAL_TIGHTNESS))
+        # Calculate target radius based on angle (r = theta)
+        target_radius = SPIRAL_START_RADIUS + (bird_angle * SPIRAL_TIGHTNESS * 500)  # Match the wall calculation
+        
+        # Adjust bird's radius based on input
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            # Move outward when space is held
+            bird_radius += 2.0
+        else:
+            # Gently move inward when space is released
+            bird_radius = max(SPIRAL_START_RADIUS - SPIRAL_WALL_THICKNESS/2 + 10, 
+                            bird_radius - 0.8)
+            
+        # Keep bird within reasonable bounds
+        bird_radius = max(10, min(bird_radius, SCREEN_WIDTH))
         
         # Convert polar to cartesian for drawing
-        bird_x = CENTER_X + bird_radius * math.cos(bird_angle)
-        bird_y = CENTER_Y + bird_radius * math.sin(bird_angle)
+        bird_x = CENTER_X + (bird_radius * math.cos(bird_angle))
+        bird_y = CENTER_Y + (bird_radius * math.sin(bird_angle))
         
         # Generate new pipes
         if not pipes or (bird_angle - last_pipe_angle) > PIPE_ANGULAR_SPACING:
@@ -207,8 +225,20 @@ while True:
             if pipe.angle < bird_angle - math.pi * 2:
                 pipes.remove(pipe)
         
-        # Collision detection with screen bounds
-        if bird_radius < 20 or bird_radius > 300:
+        # Collision detection with spiral walls
+        current_angle = bird_angle % (2 * math.pi)
+        wall_radius = SPIRAL_START_RADIUS + (current_angle * SPIRAL_TIGHTNESS * 500)
+        
+        # Calculate distance from center of wall
+        distance_from_wall_center = abs(bird_radius - wall_radius)
+        
+        # Calculate the safe zone (where the bird can fly)
+        inner_wall = wall_radius - SPIRAL_WALL_THICKNESS/2
+        outer_wall = wall_radius + SPIRAL_WALL_THICKNESS/2
+        
+        # Check if bird is outside the safe zone
+        if (bird_radius < inner_wall - bird_width/2 or 
+            bird_radius > outer_wall + bird_width/2):
             game_state = 'game_over'
             
         # Collision detection with pipes
@@ -224,18 +254,43 @@ while True:
         # Draw the background image
         screen.blit(bg_img, (0, 0))
         
-        # Draw pipes along the spiral
-        for pipe in pipes:
-            # Draw pipe segments around the circle
-            for i in range(36):  # 36 segments for smooth circle
-                angle = pipe.angle + math.radians(i * 10)
-                if abs((angle - pipe.gap_angle + math.pi) % (2 * math.pi) - math.pi) > math.radians(30):
-                    r = 200 - (pipe.angle * SPIRAL_TIGHTNESS)
-                    x = CENTER_X + r * math.cos(angle)
-                    y = CENTER_Y + r * math.sin(angle)
-                    pipe_img = pygame.transform.scale(sam_img, (PIPE_WIDTH, PIPE_WIDTH))
-                    pipe_img = pygame.transform.rotate(pipe_img, math.degrees(angle) + 90)
-                    screen.blit(pipe_img, (x - PIPE_WIDTH//2, y - PIPE_WIDTH//2))
+        # Draw the spiral wall
+        wall_angle = 0
+        wall_radius = SPIRAL_START_RADIUS
+        
+        # Draw multiple revolutions of the spiral
+        for _ in range(20):  # Draw 20 full rotations
+            for _ in range(36):  # 36 segments per rotation (10 degrees each)
+                # Calculate current and next points on the inner wall
+                inner_radius = max(10, wall_radius - SPIRAL_WALL_THICKNESS/2)
+                x1 = CENTER_X + wall_radius * math.cos(wall_angle)
+                y1 = CENTER_Y + wall_radius * math.sin(wall_angle)
+                x2 = CENTER_X + inner_radius * math.cos(wall_angle)
+                y2 = CENTER_Y + inner_radius * math.sin(wall_angle)
+                
+                # Draw the wall segment
+                pygame.draw.line(screen, (0, 100, 200), (x1, y1), (x2, y2), 2)
+                
+                # Draw the outer edge of the wall
+                if wall_angle > 0.2:  # Skip first segment to avoid line from center
+                    prev_x = CENTER_X + wall_radius * math.cos(wall_angle - 0.1)
+                    prev_y = CENTER_Y + wall_radius * math.sin(wall_angle - 0.1)
+                    pygame.draw.line(screen, (0, 200, 255), (prev_x, prev_y), (x1, y1), 2)
+                
+                # Draw the inner edge of the wall
+                if wall_angle > 0.2 and inner_radius > 10:  # Skip first segment and center
+                    prev_inner_x = CENTER_X + inner_radius * math.cos(wall_angle - 0.1)
+                    prev_inner_y = CENTER_Y + inner_radius * math.sin(wall_angle - 0.1)
+                    pygame.draw.line(screen, (0, 50, 150), (prev_inner_x, prev_inner_y), (x2, y2), 2)
+                
+                wall_angle += 0.1  # Small angle increment for smooth spiral
+                wall_radius = SPIRAL_START_RADIUS + (wall_angle * SPIRAL_TIGHTNESS * 500)  # Increased multiplier for wider spiral
+                
+                # Stop if we've gone far enough
+                if wall_radius > SCREEN_WIDTH * 1.5:
+                    break
+            if wall_radius > SCREEN_WIDTH * 1.5:
+                break
         
         # Draw the bird (Smeagol image)
         bird_rotated = pygame.transform.rotate(smeagol_img, math.degrees(bird_angle) + 90)
