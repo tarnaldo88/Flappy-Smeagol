@@ -178,7 +178,7 @@ while True:
         score_saved = False
         
         # Bird physics in spiral
-        bird_angular_velocity += ANGULAR_ACCELERITY
+        bird_angular_velocity += ANGULAR_ACCELERATION
         bird_angle += bird_angular_velocity
         
         # Apply spiral effect - radius decreases as angle increases
