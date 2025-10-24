@@ -47,10 +47,10 @@ bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 sam_img = pygame.image.load('Images/sam.png').convert_alpha()
 
 # Spiral parameters
-SPIRAL_TIGHTNESS = 0.02  # How quickly the spiral tightens (smaller = more gradual)
-SPIRAL_LENGTH = 2000  # How long the spiral path is in pixels (smaller = tighter)
-SPIRAL_START_RADIUS = 100  # Starting radius of the spiral
-SPIRAL_WALL_THICKNESS = 80  # Thickness of the spiral wall
+SPIRAL_TIGHTNESS = 0.0002  # How quickly the spiral tightens (smaller = more gradual)
+SPIRAL_LENGTH = 5000  # How long the spiral path is in pixels (smaller = tighter)
+SPIRAL_START_RADIUS = 200  # Starting radius of the spiral
+SPIRAL_WALL_THICKNESS = 120  # Thickness of the spiral wall
 ANGULAR_ACCELERATION = 0.0003  # Reduced for better control
 ANGULAR_JUMP_STRENGTH = -0.1  # Slightly stronger for better control
 BIRD_SPEED_MULTIPLIER = 2.0  # How fast the bird moves along the spiral
@@ -143,8 +143,18 @@ def show_lobby():
     screen.blit(prompt, prompt_rect)
     pygame.display.flip()
 
-# Get username before starting the game
-username = get_username()
+# Username handling
+username = None
+try:
+    # Try to load username from file
+    with open('username.txt', 'r') as f:
+        username = f.read().strip()
+except FileNotFoundError:
+    # If no saved username, ask for one
+    username = get_username()
+    # Save the username for future sessions
+    with open('username.txt', 'w') as f:
+        f.write(username)
 
 # To prevent saving multiple times per game over event
 score_saved = False
@@ -166,7 +176,6 @@ while True:
         clock.tick(30)
         continue
     if game_state == 'username':
-        username = get_username()
         game_state = 'play'
         pygame.event.clear()  # Clear event queue so spacebar isn't "held over"
         continue
@@ -191,11 +200,16 @@ while True:
     if game_state == 'play':
         score_saved = False
         
+        # Add a small delay before starting to prevent immediate game over
+        if bird_angle < 0.1:  # First few frames
+            bird_angular_velocity = 0.01  # Start slow
+        
         # Bird physics - move forward along spiral
+        bird_angular_velocity = 0.02  # Reset to base speed each frame
         bird_angle += bird_angular_velocity
         
-        # Calculate target radius based on angle (r = theta)
-        target_radius = bird_angle * SPIRAL_TIGHTNESS * 1000
+        # Calculate target radius based on angle (r = a*theta)
+        target_radius = SPIRAL_START_RADIUS + (bird_angle * SPIRAL_TIGHTNESS * 10000)
         
         # Adjust bird's radius based on input (steering within the tunnel)
         keys = pygame.key.get_pressed()
@@ -206,9 +220,10 @@ while True:
             # Gently move inward in the tunnel
             bird_radius = max(bird_radius - 1.5, target_radius - SPIRAL_WALL_THICKNESS/2 + 20)
         
-        # Game over if bird hits the tunnel walls
-        if (bird_radius > target_radius + SPIRAL_WALL_THICKNESS/2 - 10 or 
-            bird_radius < target_radius - SPIRAL_WALL_THICKNESS/2 + 10):
+        # Game over if bird hits the tunnel walls (with more lenient collision)
+        wall_margin = 20  # Extra margin before game over
+        if (bird_radius > target_radius + SPIRAL_WALL_THICKNESS/2 + wall_margin or 
+            bird_radius < max(10, target_radius - SPIRAL_WALL_THICKNESS/2 - wall_margin)):
             game_state = 'game_over'
         
         # Convert polar to cartesian for drawing
@@ -236,7 +251,7 @@ while True:
         
         # Collision detection with spiral walls
         current_angle = bird_angle % (2 * math.pi)
-        wall_radius = SPIRAL_START_RADIUS + (current_angle * SPIRAL_TIGHTNESS * 500)
+        wall_radius = SPIRAL_START_RADIUS + (current_angle * SPIRAL_TIGHTNESS * 10000)
         
         # Calculate distance from center of wall
         distance_from_wall_center = abs(bird_radius - wall_radius)
@@ -245,9 +260,10 @@ while True:
         inner_wall = wall_radius - SPIRAL_WALL_THICKNESS/2
         outer_wall = wall_radius + SPIRAL_WALL_THICKNESS/2
         
-        # Check if bird is outside the safe zone
-        if (bird_radius < inner_wall - bird_width/2 or 
-            bird_radius > outer_wall + bird_width/2):
+        # Check if bird is outside the safe zone (with more lenient collision)
+        safe_margin = 15  # Extra margin before game over
+        if (bird_radius < inner_wall - bird_width/2 - safe_margin or 
+            bird_radius > outer_wall + bird_width/2 + safe_margin):
             game_state = 'game_over'
             
         # Collision detection with pipes
@@ -278,14 +294,14 @@ while True:
         screen.blit(bg_scaled, (camera_x, camera_y))
         
         # Draw the spiral tunnel
-        wall_angle = 0
+        wall_angle = max(0, bird_angle - math.pi)  # Start drawing slightly behind the bird
         wall_radius = 0
-        segments = int(SPIRAL_LENGTH / 10)  # Number of segments to draw
+        segments = int(SPIRAL_LENGTH / 5)  # Number of segments to draw
         
         # Draw the spiral path
         for i in range(segments):
             # Calculate radius at this angle (r = a*theta)
-            wall_radius = wall_angle * SPIRAL_TIGHTNESS * 1000
+            wall_radius = SPIRAL_START_RADIUS + (wall_angle * SPIRAL_TIGHTNESS * 10000)
             
             # Calculate inner and outer edges of the tunnel
             outer_radius = wall_radius + SPIRAL_WALL_THICKNESS/2
