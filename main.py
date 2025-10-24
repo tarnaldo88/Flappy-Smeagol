@@ -14,11 +14,11 @@ CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
 
 # Camera settings
-ZOOM_FACTOR = 1.0
-MIN_ZOOM = 0.5
-MAX_ZOOM = 2.0
-TARGET_ZOOM = 1.0
-CAMERA_SMOOTHING = 0.05
+ZOOM_FACTOR = 2.0  # Start more zoomed in
+MIN_ZOOM = 1.5
+MAX_ZOOM = 3.0
+TARGET_ZOOM = 2.0  # Target zoom level
+CAMERA_SMOOTHING = 0.1  # Smoother camera follow
 camera_x, camera_y = 0, 0
 
 # Set up the game window
@@ -276,27 +276,40 @@ while True:
                 (angle_diff > math.radians(30) or bird_radius < 50)):
                 game_state = 'game_over'
 
-        # Camera follows bird with smooth movement
-        target_zoom = 1.0  # Keep zoom constant for now
-        ZOOM_FACTOR += (target_zoom - ZOOM_FACTOR) * CAMERA_SMOOTHING
+        # Dynamic zoom based on bird's speed and position
+        target_zoom = TARGET_ZOOM
+        # Slight zoom out when moving faster
+        speed_factor = min(1.0, abs(bird_angular_velocity) * 10)
+        target_zoom = TARGET_ZOOM * (1.0 - speed_factor * 0.2)  # Zoom out up to 20% when moving fast
         
-        # Calculate camera position to keep bird centered
-        camera_x = SCREEN_WIDTH//2 - bird_x
-        camera_y = SCREEN_HEIGHT//2 - bird_y
+        # Smooth zoom transition
+        ZOOM_FACTOR += (target_zoom - ZOOM_FACTOR) * CAMERA_SMOOTHING
+        ZOOM_FACTOR = max(MIN_ZOOM, min(MAX_ZOOM, ZOOM_FACTOR))
+        
+        # Calculate camera position to keep bird centered with smooth following
+        target_camera_x = SCREEN_WIDTH//2 - bird_x
+        target_camera_y = SCREEN_HEIGHT//2 - bird_y
+        
+        # Smooth camera movement
+        camera_x += (target_camera_x - camera_x) * CAMERA_SMOOTHING * 2
+        camera_y += (target_camera_y - camera_y) * CAMERA_SMOOTHING * 2
         
         # Clear screen
         screen.fill((0, 0, 0))
         
-        # Draw the background image (scaled and positioned)
+        # Draw the background image (scaled and positioned with zoom)
         bg_scaled = pygame.transform.scale(bg_img, 
                                          (int(SCREEN_WIDTH * ZOOM_FACTOR), 
                                           int(SCREEN_HEIGHT * ZOOM_FACTOR)))
-        screen.blit(bg_scaled, (camera_x, camera_y))
+        # Center the background on the bird
+        bg_x = (SCREEN_WIDTH - bg_scaled.get_width()) // 2 + (camera_x * ZOOM_FACTOR)
+        bg_y = (SCREEN_HEIGHT - bg_scaled.get_height()) // 2 + (camera_y * ZOOM_FACTOR)
+        screen.blit(bg_scaled, (bg_x, bg_y))
         
         # Draw the spiral tunnel
-        wall_angle = max(0, bird_angle - math.pi)  # Start drawing slightly behind the bird
+        wall_angle = max(0, bird_angle - math.pi * 0.5)  # Start drawing slightly behind the bird
         wall_radius = 0
-        segments = int(SPIRAL_LENGTH / 5)  # Number of segments to draw
+        segments = int(SPIRAL_LENGTH / 3)  # Draw more segments for smoother spiral
         
         # Draw the spiral path
         for i in range(segments):
