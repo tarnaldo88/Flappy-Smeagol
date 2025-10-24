@@ -13,6 +13,14 @@ FPS = 60
 CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
 
+# Camera settings
+ZOOM_FACTOR = 1.0
+MIN_ZOOM = 0.5
+MAX_ZOOM = 2.0
+TARGET_ZOOM = 1.0
+CAMERA_SMOOTHING = 0.05
+camera_x, camera_y = 0, 0
+
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption('Spiral Smeagol')
@@ -39,7 +47,8 @@ bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 sam_img = pygame.image.load('Images/sam.png').convert_alpha()
 
 # Spiral parameters
-SPIRAL_TIGHTNESS = 0.005  # How quickly the spiral tightens (smaller = tighter)
+SPIRAL_TIGHTNESS = 0.02  # How quickly the spiral tightens (smaller = more gradual)
+SPIRAL_LENGTH = 2000  # How long the spiral path is in pixels (smaller = tighter)
 SPIRAL_START_RADIUS = 100  # Starting radius of the spiral
 SPIRAL_WALL_THICKNESS = 80  # Thickness of the spiral wall
 ANGULAR_ACCELERATION = 0.0003  # Reduced for better control
@@ -61,9 +70,9 @@ class Pipe:
 
 def reset_game():
     global bird_radius, bird_angle, bird_angular_velocity, pipes, last_pipe_angle, score
-    bird_radius = 100
+    bird_radius = 50  # Start closer to center
     bird_angle = 0
-    bird_angular_velocity = 0
+    bird_angular_velocity = 0.02  # Constant forward motion
     pipes = []
     last_pipe_angle = 0
     score = 0
@@ -182,25 +191,25 @@ while True:
     if game_state == 'play':
         score_saved = False
         
-        # Bird physics in spiral
-        bird_angular_velocity += ANGULAR_ACCELERATION
+        # Bird physics - move forward along spiral
         bird_angle += bird_angular_velocity
         
         # Calculate target radius based on angle (r = theta)
-        target_radius = SPIRAL_START_RADIUS + (bird_angle * SPIRAL_TIGHTNESS * 500)  # Match the wall calculation
+        target_radius = bird_angle * SPIRAL_TIGHTNESS * 1000
         
-        # Adjust bird's radius based on input
+        # Adjust bird's radius based on input (steering within the tunnel)
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
-            # Move outward when space is held
-            bird_radius += 2.0
+            # Move outward in the tunnel
+            bird_radius = min(bird_radius + 2.0, target_radius + SPIRAL_WALL_THICKNESS/2 - 20)
         else:
-            # Gently move inward when space is released
-            bird_radius = max(SPIRAL_START_RADIUS - SPIRAL_WALL_THICKNESS/2 + 10, 
-                            bird_radius - 0.8)
-            
-        # Keep bird within reasonable bounds
-        bird_radius = max(10, min(bird_radius, SCREEN_WIDTH))
+            # Gently move inward in the tunnel
+            bird_radius = max(bird_radius - 1.5, target_radius - SPIRAL_WALL_THICKNESS/2 + 20)
+        
+        # Game over if bird hits the tunnel walls
+        if (bird_radius > target_radius + SPIRAL_WALL_THICKNESS/2 - 10 or 
+            bird_radius < target_radius - SPIRAL_WALL_THICKNESS/2 + 10):
+            game_state = 'game_over'
         
         # Convert polar to cartesian for drawing
         bird_x = CENTER_X + (bird_radius * math.cos(bird_angle))
@@ -251,52 +260,84 @@ while True:
                 (angle_diff > math.radians(30) or bird_radius < 50)):
                 game_state = 'game_over'
 
-        # Draw the background image
-        screen.blit(bg_img, (0, 0))
+        # Camera follows bird with smooth movement
+        target_zoom = 1.0  # Keep zoom constant for now
+        ZOOM_FACTOR += (target_zoom - ZOOM_FACTOR) * CAMERA_SMOOTHING
         
-        # Draw the spiral wall
+        # Calculate camera position to keep bird centered
+        camera_x = SCREEN_WIDTH//2 - bird_x
+        camera_y = SCREEN_HEIGHT//2 - bird_y
+        
+        # Clear screen
+        screen.fill((0, 0, 0))
+        
+        # Draw the background image (scaled and positioned)
+        bg_scaled = pygame.transform.scale(bg_img, 
+                                         (int(SCREEN_WIDTH * ZOOM_FACTOR), 
+                                          int(SCREEN_HEIGHT * ZOOM_FACTOR)))
+        screen.blit(bg_scaled, (camera_x, camera_y))
+        
+        # Draw the spiral tunnel
         wall_angle = 0
-        wall_radius = SPIRAL_START_RADIUS
+        wall_radius = 0
+        segments = int(SPIRAL_LENGTH / 10)  # Number of segments to draw
         
-        # Draw multiple revolutions of the spiral
-        for _ in range(20):  # Draw 20 full rotations
-            for _ in range(36):  # 36 segments per rotation (10 degrees each)
-                # Calculate current and next points on the inner wall
-                inner_radius = max(10, wall_radius - SPIRAL_WALL_THICKNESS/2)
-                x1 = CENTER_X + wall_radius * math.cos(wall_angle)
-                y1 = CENTER_Y + wall_radius * math.sin(wall_angle)
-                x2 = CENTER_X + inner_radius * math.cos(wall_angle)
-                y2 = CENTER_Y + inner_radius * math.sin(wall_angle)
+        # Draw the spiral path
+        for i in range(segments):
+            # Calculate radius at this angle (r = a*theta)
+            wall_radius = wall_angle * SPIRAL_TIGHTNESS * 1000
+            
+            # Calculate inner and outer edges of the tunnel
+            outer_radius = wall_radius + SPIRAL_WALL_THICKNESS/2
+            inner_radius = max(10, wall_radius - SPIRAL_WALL_THICKNESS/2)
+            
+            # Calculate points for the outer and inner walls
+            x_outer = CENTER_X + outer_radius * math.cos(wall_angle)
+            y_outer = CENTER_Y + outer_radius * math.sin(wall_angle)
+            x_inner = CENTER_X + inner_radius * math.cos(wall_angle)
+            y_inner = CENTER_Y + inner_radius * math.sin(wall_angle)
+            
+            # Draw the tunnel walls
+            if i > 0:  # Skip first segment
+                # Draw outer wall (blue)
+                pygame.draw.line(screen, (0, 100, 255), 
+                               (prev_x_outer + camera_x, prev_y_outer + camera_y),
+                               (x_outer + camera_x, y_outer + camera_y), 3)
                 
-                # Draw the wall segment
-                pygame.draw.line(screen, (0, 100, 200), (x1, y1), (x2, y2), 2)
+                # Draw inner wall (darker blue)
+                pygame.draw.line(screen, (0, 50, 150),
+                               (prev_x_inner + camera_x, prev_y_inner + camera_y),
+                               (x_inner + camera_x, y_inner + camera_y), 3)
                 
-                # Draw the outer edge of the wall
-                if wall_angle > 0.2:  # Skip first segment to avoid line from center
-                    prev_x = CENTER_X + wall_radius * math.cos(wall_angle - 0.1)
-                    prev_y = CENTER_Y + wall_radius * math.sin(wall_angle - 0.1)
-                    pygame.draw.line(screen, (0, 200, 255), (prev_x, prev_y), (x1, y1), 2)
-                
-                # Draw the inner edge of the wall
-                if wall_angle > 0.2 and inner_radius > 10:  # Skip first segment and center
-                    prev_inner_x = CENTER_X + inner_radius * math.cos(wall_angle - 0.1)
-                    prev_inner_y = CENTER_Y + inner_radius * math.sin(wall_angle - 0.1)
-                    pygame.draw.line(screen, (0, 50, 150), (prev_inner_x, prev_inner_y), (x2, y2), 2)
-                
-                wall_angle += 0.1  # Small angle increment for smooth spiral
-                wall_radius = SPIRAL_START_RADIUS + (wall_angle * SPIRAL_TIGHTNESS * 500)  # Increased multiplier for wider spiral
-                
-                # Stop if we've gone far enough
-                if wall_radius > SCREEN_WIDTH * 1.5:
-                    break
-            if wall_radius > SCREEN_WIDTH * 1.5:
+                # Draw connecting lines to create tunnel effect
+                if i % 5 == 0:  # Draw connecting lines less frequently for better performance
+                    pygame.draw.line(screen, (0, 150, 200),
+                                   (x_outer + camera_x, y_outer + camera_y),
+                                   (x_inner + camera_x, y_inner + camera_y), 1)
+            
+            # Save points for next segment
+            prev_x_outer, prev_y_outer = x_outer, y_outer
+            prev_x_inner, prev_y_inner = x_inner, y_inner
+            
+            # Increment angle for next segment
+            wall_angle += 0.1
+            
+            # Stop drawing if we've gone far enough ahead of the bird
+            if wall_angle > bird_angle + math.pi * 2:  # One full rotation ahead
                 break
         
         # Draw the bird (Smeagol image)
-        bird_rotated = pygame.transform.rotate(smeagol_img, math.degrees(bird_angle) + 90)
-        screen.blit(bird_rotated, (bird_x - bird_width//2, bird_y - bird_height//2))
+        bird_rotated = pygame.transform.rotate(
+            pygame.transform.scale(smeagol_img, 
+                                 (int(bird_width * ZOOM_FACTOR), 
+                                  int(bird_height * ZOOM_FACTOR))),
+            math.degrees(bird_angle) + 90
+        )
+        bird_screen_x = (bird_x - camera_x) * ZOOM_FACTOR - bird_rotated.get_width() // 2
+        bird_screen_y = (bird_y - camera_y) * ZOOM_FACTOR - bird_rotated.get_height() // 2
+        screen.blit(bird_rotated, (bird_screen_x, bird_screen_y))
 
-        # Draw the score
+        # Draw the score (always at fixed screen position)
         score_text = score_font.render(f'Score: {score}', True, (255,0,0))
         screen.blit(score_text, (10, 10))
 
