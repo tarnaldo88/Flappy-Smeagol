@@ -14,11 +14,11 @@ CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
 
 # Camera settings
-ZOOM_FACTOR = 2.0  # Start more zoomed in
-MIN_ZOOM = 1.5
-MAX_ZOOM = 3.0
-TARGET_ZOOM = 2.0  # Target zoom level
-CAMERA_SMOOTHING = 0.1  # Smoother camera follow
+ZOOM_FACTOR = 3.0  # Start more zoomed in
+MIN_ZOOM = 2.5
+MAX_ZOOM = 4.0
+TARGET_ZOOM = 3.0  # Target zoom level
+CAMERA_SMOOTHING = 0.15  # Smoother camera follow
 camera_x, camera_y = 0, 0
 
 # Set up the game window
@@ -70,12 +70,21 @@ class Pipe:
 
 def reset_game():
     global bird_radius, bird_angle, bird_angular_velocity, pipes, last_pipe_angle, score
-    bird_radius = 50  # Start closer to center
+    global camera_x, camera_y, ZOOM_FACTOR
+    
+    # Reset bird position and physics
+    bird_radius = SPIRAL_START_RADIUS + 50  # Start just outside the center
     bird_angle = 0
     bird_angular_velocity = 0.02  # Constant forward motion
+    
+    # Reset game state
     pipes = []
     last_pipe_angle = 0
     score = 0
+    
+    # Reset camera
+    camera_x, camera_y = 0, 0
+    ZOOM_FACTOR = TARGET_ZOOM  # Reset zoom level
 
 game_state = 'play'  # can be 'play' or 'game_over'
 reset_game()
@@ -227,8 +236,8 @@ while True:
             game_state = 'game_over'
         
         # Convert polar to cartesian for drawing
-        bird_x = CENTER_X + (bird_radius * math.cos(bird_angle))
-        bird_y = CENTER_Y + (bird_radius * math.sin(bird_angle))
+        bird_x = (bird_radius * math.cos(bird_angle))
+        bird_y = (bird_radius * math.sin(bird_angle))
         
         # Generate new pipes
         if not pipes or (bird_angle - last_pipe_angle) > PIPE_ANGULAR_SPACING:
@@ -276,23 +285,22 @@ while True:
                 (angle_diff > math.radians(30) or bird_radius < 50)):
                 game_state = 'game_over'
 
-        # Dynamic zoom based on bird's speed and position
-        target_zoom = TARGET_ZOOM
-        # Slight zoom out when moving faster
-        speed_factor = min(1.0, abs(bird_angular_velocity) * 10)
-        target_zoom = TARGET_ZOOM * (1.0 - speed_factor * 0.2)  # Zoom out up to 20% when moving fast
+        # Calculate target camera position to keep bird centered
+        target_camera_x = CENTER_X - bird_x
+        target_camera_y = CENTER_Y - bird_y
+        
+        # Smooth camera follow with easing
+        camera_x += (target_camera_x - camera_x) * CAMERA_SMOOTHING * 3
+        camera_y += (target_camera_y - camera_y) * CAMERA_SMOOTHING * 3
+        
+        # Dynamic zoom based on bird's position in the spiral
+        # As bird moves outward, gradually zoom out to keep more of the spiral in view
+        distance_from_center = math.sqrt(bird_x**2 + bird_y**2)
+        zoom_factor = 1.0 + (distance_from_center / 1000)  # Adjust divisor for zoom sensitivity
+        target_zoom = min(MAX_ZOOM, max(MIN_ZOOM, TARGET_ZOOM / zoom_factor))
         
         # Smooth zoom transition
         ZOOM_FACTOR += (target_zoom - ZOOM_FACTOR) * CAMERA_SMOOTHING
-        ZOOM_FACTOR = max(MIN_ZOOM, min(MAX_ZOOM, ZOOM_FACTOR))
-        
-        # Calculate camera position to keep bird centered with smooth following
-        target_camera_x = SCREEN_WIDTH//2 - bird_x
-        target_camera_y = SCREEN_HEIGHT//2 - bird_y
-        
-        # Smooth camera movement
-        camera_x += (target_camera_x - camera_x) * CAMERA_SMOOTHING * 2
-        camera_y += (target_camera_y - camera_y) * CAMERA_SMOOTHING * 2
         
         # Clear screen
         screen.fill((0, 0, 0))
@@ -307,9 +315,9 @@ while True:
         screen.blit(bg_scaled, (bg_x, bg_y))
         
         # Draw the spiral tunnel
-        wall_angle = max(0, bird_angle - math.pi * 0.5)  # Start drawing slightly behind the bird
+        wall_angle = max(0, bird_angle - math.pi * 0.3)  # Start drawing slightly behind the bird
         wall_radius = 0
-        segments = int(SPIRAL_LENGTH / 3)  # Draw more segments for smoother spiral
+        segments = int(SPIRAL_LENGTH / 4)  # Draw more segments for smoother spiral
         
         # Draw the spiral path
         for i in range(segments):
@@ -362,8 +370,9 @@ while True:
                                   int(bird_height * ZOOM_FACTOR))),
             math.degrees(bird_angle) + 90
         )
-        bird_screen_x = (bird_x - camera_x) * ZOOM_FACTOR - bird_rotated.get_width() // 2
-        bird_screen_y = (bird_y - camera_y) * ZOOM_FACTOR - bird_rotated.get_height() // 2
+        # Draw bird at screen center (since camera follows it)
+        bird_screen_x = (SCREEN_WIDTH - bird_rotated.get_width()) // 2
+        bird_screen_y = (SCREEN_HEIGHT - bird_rotated.get_height()) // 2
         screen.blit(bird_rotated, (bird_screen_x, bird_screen_y))
 
         # Draw the score (always at fixed screen position)
