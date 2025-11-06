@@ -1,151 +1,143 @@
 import pygame
 import sys
-import math
 import random
 
 # Initialize pygame
 pygame.init()
 
 # Game Constants
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 800
+SCREEN_WIDTH = 400
+SCREEN_HEIGHT = 600
 FPS = 60
-CENTER_X = SCREEN_WIDTH // 2
-CENTER_Y = SCREEN_HEIGHT // 2
+GRAVITY = 0.5
+FLAP_STRENGTH = -8
+PIPE_SPEED = 3
+PIPE_GAP = 150
+PIPE_FREQUENCY = 1500  # milliseconds
 
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Smeagol's Spiral Journey")
+pygame.display.set_caption("Flappy Smeagol")
 clock = pygame.time.Clock()
 
 # Load images
 try:
     smeagol_img = pygame.image.load('Images/smeagol.png').convert_alpha()
+    smeagol_img = pygame.transform.scale(smeagol_img, (40, 30))
     bg_img = pygame.image.load('Images/background.jpg').convert()
     bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
-    ring_img = pygame.image.load('Images/sam.png').convert_alpha()
-    ring_img = pygame.transform.scale(ring_img, (40, 40))
+    pipe_img = pygame.image.load('Images/sam.png').convert_alpha()
+    pipe_img = pygame.transform.scale(pipe_img, (80, 400))
 except:
     # Create placeholder images if files not found
-    smeagol_img = pygame.Surface((40, 40), pygame.SRCALPHA)
-    pygame.draw.circle(smeagol_img, (0, 255, 0), (20, 20), 20)
+    smeagol_img = pygame.Surface((40, 30), pygame.SRCALPHA)
+    pygame.draw.ellipse(smeagol_img, (0, 255, 0), (0, 0, 40, 30))
     bg_img = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-    bg_img.fill((50, 50, 100))
-    ring_img = pygame.Surface((40, 40), pygame.SRCALPHA)
-    pygame.draw.circle(ring_img, (255, 200, 0), (20, 20), 20, 3)
+    bg_img.fill((135, 206, 235))  # Sky blue
+    pipe_img = pygame.Surface((80, 400), pygame.SRCALPHA)
+    pygame.draw.rect(pipe_img, (0, 200, 0), (0, 0, 80, 400))
 
 # Game parameters
 class Smeagol:
     def __init__(self):
-        self.angle = 0  # Current angle in radians
-        self.radius = 100  # Distance from center
-        self.target_radius = 100  # Target radius for smooth movement
-        self.speed = 0.03  # Base angular speed
-        self.radius_speed = 2.0  # Radius change speed
-        self.size = 25  # Size of Smeagol
-        self.image = pygame.transform.scale(smeagol_img, (self.size, self.size))
-        self.rect = pygame.Rect(0, 0, self.size, self.size)
+        self.x = 100
+        self.y = SCREEN_HEIGHT // 2
+        self.velocity = 0
+        self.size = (40, 30)
+        self.image = smeagol_img
+        self.rect = pygame.Rect(self.x, self.y, self.size[0], self.size[1])
         
-    def update(self, keys):
-        # Move forward/backward with left/right arrow keys or A/D
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.angle += self.speed * 1.5  # Move forward (clockwise)
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.angle -= self.speed * 1.5  # Move backward (counter-clockwise)
+    def update(self):
+        # Apply gravity
+        self.velocity += GRAVITY
+        self.y += self.velocity
+        self.rect.y = int(self.y)
         
-        # Control radius with up/down or W/S
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.target_radius = max(50, self.target_radius - self.radius_speed)
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.target_radius = min(350, self.target_radius + self.radius_speed)
-            
-        # Smooth radius transition
-        self.radius += (self.target_radius - self.radius) * 0.1
-        
-        # Calculate position (fixed center)
-        self.x = CENTER_X + math.cos(self.angle) * self.radius
-        self.y = CENTER_Y + math.sin(self.angle) * self.radius
-        self.rect.center = (int(self.x), int(self.y))
+        # Rotate based on velocity
+        self.rotated_image = pygame.transform.rotate(
+            self.image, 
+            min(max(-30, -self.velocity * 3), 30)  # Limit rotation between -30 and 30 degrees
+        )
+        self.rect = self.rotated_image.get_rect(center=(self.x + self.size[0]//2, self.y + self.size[1]//2))
+    
+    def flap(self):
+        self.velocity = FLAP_STRENGTH
+    
+    def draw(self, surface):
+        surface.blit(self.rotated_image, (self.x, self.y))
 
-class Ring:
-    def __init__(self, angle, radius):
-        self.angle = angle
-        self.radius = radius
-        self.size = 30  # Size of rings
-        self.collected = False
-        self.image = pygame.transform.scale(ring_img, (self.size, self.size))
-        self.rect = pygame.Rect(0, 0, self.size, self.size)
-        # Initialize position
-        self.update_position()
+class Pipe:
+    def __init__(self, x):
+        self.x = x
+        self.gap_y = random.randint(150, SCREEN_HEIGHT - 150)
+        self.passed = False
+        self.size = (80, 400)
         
-    def update_position(self):
-        # Calculate fixed position based on angle and radius
-        self.x = CENTER_X + math.cos(self.angle) * self.radius
-        self.y = CENTER_Y + math.sin(self.angle) * self.radius
-        self.rect.center = (int(self.x), int(self.y))
+    def update(self):
+        self.x -= PIPE_SPEED
+        
+    def draw(self, surface):
+        # Draw top pipe (flipped)
+        top_pipe = pygame.transform.flip(pipe_img, False, True)
+        surface.blit(top_pipe, (self.x, self.gap_y - PIPE_GAP//2 - self.size[1]))
+        
+        # Draw bottom pipe
+        surface.blit(pipe_img, (self.x, self.gap_y + PIPE_GAP//2))
+        
+    def get_rects(self):
+        top_rect = pygame.Rect(
+            self.x, 
+            self.gap_y - PIPE_GAP//2 - self.size[1], 
+            self.size[0], 
+            self.size[1]
+        )
+        bottom_rect = pygame.Rect(
+            self.x, 
+            self.gap_y + PIPE_GAP//2, 
+            self.size[0], 
+            self.size[1]
+        )
+        return top_rect, bottom_rect
 
 # Game state
 game_state = "playing"
 score = 0
-font = pygame.font.SysFont(None, 48)
+high_score = 0
+pipes = []
+last_pipe = pygame.time.get_ticks()
+font = pygame.font.SysFont('Arial', 30)
 
 def reset_game():
-    global smeagol, rings, score, game_state
+    global smeagol, pipes, score, last_pipe
     smeagol = Smeagol()
-    rings = []
+    pipes = []
     score = 0
-    game_state = "playing"
-    
-    # Create initial rings
-    for i in range(5):
-        angle = smeagol.angle + (i + 1) * 1.5
-        radius = random.randint(100, 300)
-        rings.append(Ring(angle, radius))
+    last_pipe = pygame.time.get_ticks()
 
-# Initialize game
 reset_game()
 
-def draw_spiral(surface, num_loops=5, line_width=2):
-    """Draw a fixed spiral path"""
-    points = []
-    for i in range(360 * num_loops):
-        angle = math.radians(i)
-        # Make the spiral expand more gradually
-        radius = 50 + i * 0.3
-        x = CENTER_X + math.cos(angle) * radius
-        y = CENTER_Y + math.sin(angle) * radius
-        points.append((x, y))
-    
-    if len(points) > 1:
-        pygame.draw.lines(surface, (100, 100, 200, 100), False, points, line_width)
-        
-        # Draw radial lines for better depth perception
-        for i in range(0, len(points), 30):
-            if i < len(points):
-                pygame.draw.line(surface, (80, 80, 180, 80), 
-                               (CENTER_X, CENTER_Y), points[i], 1)
-
 def draw_ui():
-    """Draw score and other UI elements"""
     score_text = font.render(f'Score: {score}', True, (255, 255, 255))
     screen.blit(score_text, (20, 20))
+    
+    high_score_text = font.render(f'High Score: {high_score}', True, (255, 255, 255))
+    screen.blit(high_score_text, (20, 50))
 
 def show_game_over():
-    """Show game over screen"""
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 180))
     screen.blit(overlay, (0, 0))
     
     game_over_text = font.render('Game Over!', True, (255, 255, 255))
     score_text = font.render(f'Final Score: {score}', True, (255, 255, 255))
-    restart_text = font.render('Press R to Restart', True, (255, 255, 255))
+    restart_text = font.render('Press SPACE to Restart', True, (255, 255, 255))
     
     screen.blit(game_over_text, (SCREEN_WIDTH//2 - game_over_text.get_width()//2, 
                                 SCREEN_HEIGHT//2 - 50))
     screen.blit(score_text, (SCREEN_WIDTH//2 - score_text.get_width()//2, 
-                            SCREEN_HEIGHT//2 + 10))
+                            SCREEN_HEIGHT//2))
     screen.blit(restart_text, (SCREEN_WIDTH//2 - restart_text.get_width()//2, 
-                              SCREEN_HEIGHT//2 + 70))
+                              SCREEN_HEIGHT//2 + 50))
 
 # Main game loop
 running = True
@@ -157,57 +149,56 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
-            elif event.key == pygame.K_r and game_state == "game_over":
-                reset_game()
-    
-    # Get keyboard state
-    keys = pygame.key.get_pressed()
+            elif event.key == pygame.K_SPACE:
+                if game_state == "playing":
+                    smeagol.flap()
+                else:
+                    reset_game()
+                    game_state = "playing"
     
     # Update game state
     if game_state == "playing":
         # Update Smeagol
-        smeagol.update(keys)
+        smeagol.update()
         
-        # Update rings
-        for ring in rings[:]:
-            if not ring.collected:
-                ring.update()
-                # Check for collection
-                if smeagol.rect.colliderect(ring.rect):
-                    ring.collected = True
-                    score += 10
-                    
-                    # Add new ring ahead on the spiral
-                    new_angle = smeagol.angle + random.uniform(1.5, 3.0)
-                    # Keep rings at a reasonable distance from the center
-                    new_radius = random.randint(100, 300)
-                    rings.append(Ring(new_angle, new_radius))
+        # Generate new pipes
+        current_time = pygame.time.get_ticks()
+        if current_time - last_pipe > PIPE_FREQUENCY:
+            pipes.append(Pipe(SCREEN_WIDTH))
+            last_pipe = current_time
         
-        # Remove collected rings
-        rings = [ring for ring in rings if not ring.collected]
-        
-        # Game over if too far from center or too close
-        if smeagol.radius > 350 or smeagol.radius < 50:
-            game_state = "game_over"
+        # Update pipes and check for scoring
+        for pipe in pipes[:]:
+            pipe.update()
+            
+            # Check if pipe is passed
+            if pipe.x + pipe.size[0] < smeagol.x and not pipe.passed:
+                score += 1
+                pipe.passed = True
+                if score > high_score:
+                    high_score = score
+            
+            # Remove off-screen pipes
+            if pipe.x < -pipe.size[0]:
+                pipes.remove(pipe)
+            
+            # Check for collisions
+            top_rect, bottom_rect = pipe.get_rects()
+            if (smeagol.rect.colliderect(top_rect) or 
+                smeagol.rect.colliderect(bottom_rect) or
+                smeagol.y < 0 or 
+                smeagol.y > SCREEN_HEIGHT):
+                game_state = "game_over"
     
     # Drawing
     screen.blit(bg_img, (0, 0))
     
-    # Draw fixed spiral path
-    draw_spiral(screen, num_loops=5)
+    # Draw pipes
+    for pipe in pipes:
+        pipe.draw(screen)
     
-    # Draw rings
-    for ring in rings:
-        if not ring.collected:
-            screen.blit(ring.image, ring.rect)
-    
-    # Draw Smeagol with rotation based on movement direction
-    # Calculate movement direction for proper rotation
-    movement_angle = math.atan2(smeagol.y - CENTER_Y, smeagol.x - CENTER_X)
-    angle_degrees = math.degrees(movement_angle) - 90  # -90 to point along the spiral
-    rotated_smeagol = pygame.transform.rotate(smeagol.image, -angle_degrees)
-    rect = rotated_smeagol.get_rect(center=(smeagol.x, smeagol.y))
-    screen.blit(rotated_smeagol, rect.topleft)
+    # Draw Smeagol
+    smeagol.draw(screen)
     
     # Draw UI
     draw_ui()
