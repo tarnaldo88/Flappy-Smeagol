@@ -14,11 +14,11 @@ CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
 
 # Camera settings
-ZOOM_FACTOR = 3.0  # Start more zoomed in
-MIN_ZOOM = 2.5
-MAX_ZOOM = 4.0
-TARGET_ZOOM = 3.0  # Target zoom level
-CAMERA_SMOOTHING = 0.15  # Smoother camera follow
+ZOOM_FACTOR = 1.5  # Start more zoomed in
+MIN_ZOOM = 1.0
+MAX_ZOOM = 2.5
+TARGET_ZOOM = 1.5  # Target zoom level
+CAMERA_SMOOTHING = 0.2  # Smoother camera follow
 camera_x, camera_y = 0, 0
 
 # Set up the game window
@@ -47,10 +47,10 @@ bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 sam_img = pygame.image.load('Images/sam.png').convert_alpha()
 
 # Spiral parameters
-SPIRAL_TIGHTNESS = 0.0002  # How quickly the spiral tightens (smaller = more gradual)
-SPIRAL_LENGTH = 5000  # How long the spiral path is in pixels (smaller = tighter)
-SPIRAL_START_RADIUS = 200  # Starting radius of the spiral
-SPIRAL_WALL_THICKNESS = 120  # Thickness of the spiral wall
+SPIRAL_TIGHTNESS = 0.00005  # Smaller value makes the spiral much larger
+SPIRAL_LENGTH = 10000  # Longer spiral path
+SPIRAL_START_RADIUS = 50  # Starting radius of the spiral (smaller = more centered)
+SPIRAL_WALL_THICKNESS = 300  # Much thicker walls for the spiral
 ANGULAR_ACCELERATION = 0.0003  # Reduced for better control
 ANGULAR_JUMP_STRENGTH = -0.1  # Slightly stronger for better control
 BIRD_SPEED_MULTIPLIER = 2.0  # How fast the bird moves along the spiral
@@ -72,8 +72,8 @@ def reset_game():
     global bird_radius, bird_angle, bird_angular_velocity, pipes, last_pipe_angle, score
     global camera_x, camera_y, ZOOM_FACTOR
     
-    # Reset bird position and physics
-    bird_radius = SPIRAL_START_RADIUS + 50  # Start just outside the center
+    # Reset bird position and physics - start at the center of the spiral
+    bird_radius = 0  # Start at the exact center of the spiral
     bird_angle = 0
     bird_angular_velocity = 0.02  # Constant forward motion
     
@@ -224,10 +224,10 @@ while True:
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
             # Move outward in the tunnel
-            bird_radius = min(bird_radius + 2.0, target_radius + SPIRAL_WALL_THICKNESS/2 - 20)
+            bird_radius = min(bird_radius + 4.0, target_radius + SPIRAL_WALL_THICKNESS/2 - 20)
         else:
             # Gently move inward in the tunnel
-            bird_radius = max(bird_radius - 1.5, target_radius - SPIRAL_WALL_THICKNESS/2 + 20)
+            bird_radius = max(bird_radius - 3.0, target_radius - SPIRAL_WALL_THICKNESS/2 + 20)
         
         # Game over if bird hits the tunnel walls (with more lenient collision)
         wall_margin = 20  # Extra margin before game over
