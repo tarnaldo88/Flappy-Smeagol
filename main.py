@@ -1,203 +1,213 @@
 import pygame
 import sys
+import math
+import random
 
 # Initialize pygame
 pygame.init()
 
-import math
-
 # Game Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 800  # Make it square for better spiral movement
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 800
 FPS = 60
 CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
 
-# Camera settings
-ZOOM_FACTOR = 1.5  # Start more zoomed in
-MIN_ZOOM = 1.0
-MAX_ZOOM = 2.5
-TARGET_ZOOM = 1.5  # Target zoom level
-CAMERA_SMOOTHING = 0.2  # Smoother camera follow
-camera_x, camera_y = 0, 0
-
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('Spiral Smeagol')
+pygame.display.set_caption("Smeagol's Spiral Journey")
 clock = pygame.time.Clock()
 
-# Bird variables in polar coordinates (r, theta)
-bird_radius = 100  # Initial distance from center
-bird_angle = 0      # Initial angle in radians
-bird_width = 34
-bird_height = 24
-bird_angular_velocity = 0
-ANGULAR_ACCELERATION = 0.001
-ANGULAR_JUMP_STRENGTH = -0.1
+# Load images
+try:
+    smeagol_img = pygame.image.load('Images/smeagol.png').convert_alpha()
+    bg_img = pygame.image.load('Images/background.jpg').convert()
+    bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    ring_img = pygame.image.load('Images/sam.png').convert_alpha()
+    ring_img = pygame.transform.scale(ring_img, (40, 40))
+except:
+    # Create placeholder images if files not found
+    smeagol_img = pygame.Surface((40, 40), pygame.SRCALPHA)
+    pygame.draw.circle(smeagol_img, (0, 255, 0), (20, 20), 20)
+    bg_img = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    bg_img.fill((50, 50, 100))
+    ring_img = pygame.Surface((40, 40), pygame.SRCALPHA)
+    pygame.draw.circle(ring_img, (255, 200, 0), (20, 20), 20, 3)
 
-# Load Smeagol image
-smeagol_img = pygame.image.load('Images/smeagol.png').convert_alpha()
-smeagol_img = pygame.transform.scale(smeagol_img, (bird_width, bird_height))
+# Game parameters
+class Smeagol:
+    def __init__(self):
+        self.angle = 0  # Current angle in radians
+        self.radius = 100  # Distance from center
+        self.target_radius = 100  # Target radius for smooth movement
+        self.speed = 0.05  # Base angular speed (radians per frame)
+        self.radius_speed = 0.5  # Rate of radius change
+        self.size = 40  # Size of Smeagol
+        self.image = smeagol_img
+        self.rect = pygame.Rect(0, 0, self.size, self.size)
+        
+    def update(self, keys):
+        # Automatically move along the spiral
+        self.angle += self.speed
+        
+        # Control radius with arrow keys or WASD
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            self.target_radius = max(50, self.target_radius - self.radius_speed * 2)
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            self.target_radius = min(350, self.target_radius + self.radius_speed * 2)
+            
+        # Smooth radius transition
+        self.radius += (self.target_radius - self.radius) * 0.1
+        
+        # Calculate position
+        self.x = CENTER_X + math.cos(self.angle) * self.radius
+        self.y = CENTER_Y + math.sin(self.angle) * self.radius
+        self.rect.center = (self.x, self.y)
 
-# Load and scale background image
-bg_img = pygame.image.load('Images/background.jpg').convert()
-bg_img = pygame.transform.scale(bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
-
-# Load Sam image for obstacles
-sam_img = pygame.image.load('Images/sam.png').convert_alpha()
-
-# Spiral parameters
-SPIRAL_TIGHTNESS = 0.00005  # Smaller value makes the spiral much larger
-SPIRAL_LENGTH = 10000  # Longer spiral path
-SPIRAL_START_RADIUS = 50  # Starting radius of the spiral (smaller = more centered)
-SPIRAL_WALL_THICKNESS = 300  # Much thicker walls for the spiral
-ANGULAR_ACCELERATION = 0.0003  # Reduced for better control
-ANGULAR_JUMP_STRENGTH = -0.1  # Slightly stronger for better control
-BIRD_SPEED_MULTIPLIER = 2.0  # How fast the bird moves along the spiral
-
-# Pipe variables
-import random
-PIPE_WIDTH = 52
-PIPE_GAP = 150
-PIPE_ANGULAR_VELOCITY = 0.03  # How fast pipes move in the spiral
-PIPE_ANGULAR_SPACING = 0.5    # Angular distance between pipes
-
-class Pipe:
-    def __init__(self, angle, gap_angle):
+class Ring:
+    def __init__(self, angle, radius):
         self.angle = angle
-        self.gap_angle = gap_angle  # Angle where the gap is
-        self.passed = False
+        self.radius = radius
+        self.size = 40
+        self.collected = False
+        self.image = ring_img
+        self.rect = pygame.Rect(0, 0, self.size, self.size)
+        
+    def update(self):
+        # Update ring position based on its angle and radius
+        self.x = CENTER_X + math.cos(self.angle) * self.radius
+        self.y = CENTER_Y + math.sin(self.angle) * self.radius
+        self.rect.center = (self.x, self.y)
+
+# Game state
+game_state = "playing"
+score = 0
+font = pygame.font.SysFont(None, 48)
 
 def reset_game():
-    global bird_radius, bird_angle, bird_angular_velocity, pipes, last_pipe_angle, score
-    global camera_x, camera_y, ZOOM_FACTOR
-    
-    # Reset bird position and physics - start at the center of the spiral
-    bird_radius = 0  # Start at the exact center of the spiral
-    bird_angle = 0
-    bird_angular_velocity = 0.02  # Constant forward motion
-    
-    # Reset game state
-    pipes = []
-    last_pipe_angle = 0
+    global smeagol, rings, score, game_state
+    smeagol = Smeagol()
+    rings = []
     score = 0
+    game_state = "playing"
     
-    # Reset camera
-    camera_x, camera_y = 0, 0
-    ZOOM_FACTOR = TARGET_ZOOM  # Reset zoom level
+    # Create initial rings
+    for i in range(5):
+        angle = smeagol.angle + (i + 1) * 1.5
+        radius = random.randint(100, 300)
+        rings.append(Ring(angle, radius))
 
-game_state = 'play'  # can be 'play' or 'game_over'
+# Initialize game
 reset_game()
 
-font = pygame.font.SysFont(None, 48)
-score_font = pygame.font.SysFont(None, 36)
-
-# --- Username Input Screen ---
-def get_username():
-    input_box = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 - 32, 200, 48)
-    color_inactive = pygame.Color('lightskyblue3')
-    color_active = pygame.Color('dodgerblue2')
-    color = color_inactive
-    active = False
-    username = ''
-    done = False
-    font_input = pygame.font.SysFont(None, 48)
+def draw_spiral(surface, start_angle, num_loops=3, line_width=2):
+    """Draw a spiral path"""
+    points = []
+    for i in range(360 * num_loops):
+        angle = math.radians(i) + start_angle
+        radius = 50 + i * 0.5
+        x = CENTER_X + math.cos(angle) * radius
+        y = CENTER_Y + math.sin(angle) * radius
+        points.append((x, y))
     
-    while not done:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                # If the user clicked on the input_box rect.
-                if input_box.collidepoint(event.pos):
-                    active = not active
-                else:
-                    active = False
-                color = color_active if active else color_inactive
-            if event.type == pygame.KEYDOWN:
-                if active:
-                    if event.key == pygame.K_RETURN:
-                        if username.strip():
-                            done = True
-                    elif event.key == pygame.K_BACKSPACE:
-                        username = username[:-1]
-                    else:
-                        if len(username) < 16 and event.unicode.isprintable():
-                            username += event.unicode
-        screen.fill((0, 0, 0))
-        # Render prompt
-        prompt = font_input.render('Enter Username:', True, (255,255,255))
-        prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
-        screen.blit(prompt, prompt_rect)
-        # Render input
-        txt_surface = font_input.render(username, True, color)
-        width = max(200, txt_surface.get_width()+10)
-        input_box.w = width
-        screen.blit(txt_surface, (input_box.x+5, input_box.y+5))
-        pygame.draw.rect(screen, color, input_box, 2)
-        pygame.display.flip()
-        clock.tick(30)
-    return username
+    if len(points) > 1:
+        pygame.draw.lines(surface, (100, 100, 200, 100), False, points, line_width)
 
-def show_lobby():
-    screen.fill((135, 206, 235))
-    title_font = pygame.font.SysFont(None, 64)
-    title = title_font.render('Flappy Smeagol', True, (0, 0, 0))
-    title_rect = title.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
-    screen.blit(title, title_rect)
-    prompt_font = pygame.font.SysFont(None, 36)
-    prompt = prompt_font.render('Press Space to Start', True, (0, 0, 0))
-    prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 30))
-    screen.blit(prompt, prompt_rect)
-    pygame.display.flip()
+def draw_ui():
+    """Draw score and other UI elements"""
+    score_text = font.render(f'Score: {score}', True, (255, 255, 255))
+    screen.blit(score_text, (20, 20))
 
-# Username handling
-username = None
-try:
-    # Try to load username from file
-    with open('username.txt', 'r') as f:
-        username = f.read().strip()
-except FileNotFoundError:
-    # If no saved username, ask for one
-    username = get_username()
-    # Save the username for future sessions
-    with open('username.txt', 'w') as f:
-        f.write(username)
+def show_game_over():
+    """Show game over screen"""
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+    screen.blit(overlay, (0, 0))
+    
+    game_over_text = font.render('Game Over!', True, (255, 255, 255))
+    score_text = font.render(f'Final Score: {score}', True, (255, 255, 255))
+    restart_text = font.render('Press R to Restart', True, (255, 255, 255))
+    
+    screen.blit(game_over_text, (SCREEN_WIDTH//2 - game_over_text.get_width()//2, 
+                                SCREEN_HEIGHT//2 - 50))
+    screen.blit(score_text, (SCREEN_WIDTH//2 - score_text.get_width()//2, 
+                            SCREEN_HEIGHT//2 + 10))
+    screen.blit(restart_text, (SCREEN_WIDTH//2 - restart_text.get_width()//2, 
+                              SCREEN_HEIGHT//2 + 70))
 
-# To prevent saving multiple times per game over event
-score_saved = False
-
-while True:
-    events = pygame.event.get()
-    for event in events:
+# Main game loop
+running = True
+while running:
+    # Event handling
+    for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        if game_state == 'lobby':
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                game_state = 'username'
-        elif game_state == 'username':
-            # Username input handled below
-            pass      
-    if game_state == 'lobby':
-        show_lobby()
-        clock.tick(30)
-        continue
-    if game_state == 'username':
-        game_state = 'play'
-        pygame.event.clear()  # Clear event queue so spacebar isn't "held over"
-        continue
-    for event in events:
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        if game_state == 'play':
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                bird_angular_velocity = ANGULAR_JUMP_STRENGTH
-        elif game_state == 'game_over':
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+            elif event.key == pygame.K_r and game_state == "game_over":
                 reset_game()
+    
+    # Get keyboard state
+    keys = pygame.key.get_pressed()
+    
+    # Update game state
+    if game_state == "playing":
+        # Update Smeagol
+        smeagol.update(keys)
+        
+        # Update rings
+        for ring in rings[:]:
+            if not ring.collected:
+                ring.update()
+                # Check for collection
+                if smeagol.rect.colliderect(ring.rect):
+                    ring.collected = True
+                    score += 10
+                    
+                    # Add new ring
+                    new_angle = smeagol.angle + random.uniform(1.5, 3.0)
+                    new_radius = random.randint(100, 300)
+                    rings.append(Ring(new_angle, new_radius))
+        
+        # Remove collected rings
+        rings = [ring for ring in rings if not ring.collected]
+        
+        # Game over if too far from center
+        if smeagol.radius > 350:
+            game_state = "game_over"
+    
+    # Drawing
+    screen.blit(bg_img, (0, 0))
+    
+    # Draw spiral path
+    draw_spiral(screen, -smeagol.angle, num_loops=5)
+    
+    # Draw rings
+    for ring in rings:
+        if not ring.collected:
+            screen.blit(ring.image, (ring.x - ring.size//2, ring.y - ring.size//2))
+    
+    # Draw Smeagol with rotation
+    angle_degrees = math.degrees(smeagol.angle)
+    rotated_smeagol = pygame.transform.rotate(smeagol.image, -angle_degrees + 90)
+    rect = rotated_smeagol.get_rect(center=(smeagol.x, smeagol.y))
+    screen.blit(rotated_smeagol, rect.topleft)
+    
+    # Draw UI
+    draw_ui()
+    
+    # Show game over screen if needed
+    if game_state == "game_over":
+        show_game_over()
+    
+    # Update display
+    pygame.display.flip()
+    clock.tick(FPS)
+
+# Clean up
+pygame.quit()
+sys.exit()
                 game_state = 'play'
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Check if Main Menu button is clicked
@@ -230,10 +240,12 @@ while True:
             bird_radius = max(bird_radius - 3.0, target_radius - SPIRAL_WALL_THICKNESS/2 + 20)
         
         # Game over if bird hits the tunnel walls (with more lenient collision)
-        wall_margin = 20  # Extra margin before game over
-        if (bird_radius > target_radius + SPIRAL_WALL_THICKNESS/2 + wall_margin or 
-            bird_radius < max(10, target_radius - SPIRAL_WALL_THICKNESS/2 - wall_margin)):
-            game_state = 'game_over'
+        # Only check for collisions after the bird has moved a bit from the center
+        if bird_radius > 10:  # Allow the bird to start from the center
+            wall_margin = 20  # Extra margin before game over
+            if (bird_radius > target_radius + SPIRAL_WALL_THICKNESS/2 + wall_margin or 
+                bird_radius < max(10, target_radius - SPIRAL_WALL_THICKNESS/2 - wall_margin)):
+                game_state = 'game_over'
         
         # Convert polar to cartesian for drawing
         bird_x = (bird_radius * math.cos(bird_angle))
@@ -262,18 +274,18 @@ while True:
         current_angle = bird_angle % (2 * math.pi)
         wall_radius = SPIRAL_START_RADIUS + (current_angle * SPIRAL_TIGHTNESS * 10000)
         
-        # Calculate distance from center of wall
-        distance_from_wall_center = abs(bird_radius - wall_radius)
-        
         # Calculate the safe zone (where the bird can fly)
         inner_wall = wall_radius - SPIRAL_WALL_THICKNESS/2
         outer_wall = wall_radius + SPIRAL_WALL_THICKNESS/2
         
         # Check if bird is outside the safe zone (with more lenient collision)
         safe_margin = 15  # Extra margin before game over
-        if (bird_radius < inner_wall - bird_width/2 - safe_margin or 
-            bird_radius > outer_wall + bird_width/2 + safe_margin):
-            game_state = 'game_over'
+        
+        # Only check for collisions after the bird has moved a bit from the center
+        if bird_radius > 10:  # Allow the bird to start from the center
+            if (bird_radius < max(0, inner_wall - bird_width/2 - safe_margin) or 
+                bird_radius > outer_wall + bird_width/2 + safe_margin):
+                game_state = 'game_over'
             
         # Collision detection with pipes
         for pipe in pipes:
