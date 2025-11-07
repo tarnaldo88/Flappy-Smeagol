@@ -85,27 +85,28 @@ class Pipe:
         surface.blit(pipe_img, (self.x, self.gap_y + PIPE_GAP//2))
         
     def get_rects(self):
-        # Make the hitbox narrower and adjust the height to better match the visible pipe
-        hitbox_width = self.size[0] * 0.6  # 60% of the original width
-        hitbox_x = self.x + (self.size[0] - hitbox_width) / 2  # Center the hitbox
+        # Use 75% of the original width for a more forgiving hitbox
+        hitbox_width = self.size[0] * 0.75
+        # Center the hitbox horizontally
+        hitbox_x = self.x + (self.size[0] - hitbox_width) / 2
         
-        # Adjust the height of the hitbox to better match the visible part of the pipe
-        hitbox_height = self.size[1] * 0.9  # 90% of the original height
+        # For the height, we'll use most of the pipe but leave some space at the ends
+        hitbox_height = self.size[1] * 0.8
         
-        # Top pipe hitbox (positioned at the bottom of the top pipe)
+        # Top pipe hitbox - positioned at the bottom of the top pipe
         top_rect = pygame.Rect(
-            int(hitbox_x), 
-            int(self.gap_y - PIPE_GAP//2 - hitbox_height * 0.3),  # Adjust vertical position
-            int(hitbox_width), 
-            int(hitbox_height * 0.7)  # Only use part of the height
+            int(hitbox_x),
+            int(self.gap_y - PIPE_GAP//2 - hitbox_height * 0.9),  # Start higher up
+            int(hitbox_width),
+            int(hitbox_height * 0.9)  # Use most of the height
         )
         
-        # Bottom pipe hitbox (positioned at the top of the bottom pipe)
+        # Bottom pipe hitbox - positioned at the top of the bottom pipe
         bottom_rect = pygame.Rect(
-            int(hitbox_x), 
-            int(self.gap_y + PIPE_GAP//2), 
-            int(hitbox_width), 
-            int(hitbox_height * 0.7)  # Only use part of the height
+            int(hitbox_x),
+            int(self.gap_y + PIPE_GAP//2),  # Start at the gap
+            int(hitbox_width),
+            int(hitbox_height * 0.9)  # Use most of the height
         )
         return top_rect, bottom_rect
 
